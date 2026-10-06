@@ -1,0 +1,19 @@
+{
+  "name": "role-auth-graphql",
+  "version": "0.1.0",
+  "description": "Role-based authorization system (admin/user) with GraphQL and Node",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@apollo/server": "^5.5.1",
+    "bcryptjs": "^3.0.3",
+    "dotenv": "^18.0.5",
+    "graphql": "^16.14.2",
+    "jsonwebtoken": "^9.0.3"
+  }
+}
