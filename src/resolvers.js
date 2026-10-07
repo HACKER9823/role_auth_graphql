@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { GraphQLError } from 'graphql';
-import { createUser, findByEmail, users } from './store.js';
-import { signToken, requireAuth } from './auth.js';
+import { createUser, findByEmail, findById, deleteUserById, users } from './store.js';
+import { signToken, requireAuth, requireRole } from './auth.js';
 
 const publicUser = ({ passwordHash, ...rest }) => rest;
 
@@ -21,12 +21,19 @@ export const resolvers = {
           message: `Welcome back, admin ${user.name}`,
           data: [`Total users: ${users.length}`, ...users.map((u) => `${u.email} (${u.role})`)],
         };
+        
       }
+      
       return {
         role: user.role,
         message: `Hello ${user.name}`,
         data: ['Your profile', 'Your activity'],
       };
+      
+    },
+        users: (_, __, ctx) => {
+      requireRole(ctx, 'ADMIN');
+      return users.map(publicUser);
     },
   },
 
@@ -53,6 +60,21 @@ export const resolvers = {
         });
       }
       return { token: signToken(user), user: publicUser(user) };
+    },
+        setUserRole: (_, { userId, role }, ctx) => {
+      const admin = requireRole(ctx, 'ADMIN');
+      if (admin.id === userId) throw badInput("You can't change your own role");
+      const target = findById(userId);
+      if (!target) throw badInput('User not found');
+      target.role = role;
+      return publicUser(target);
+    },
+
+    deleteUser: (_, { userId }, ctx) => {
+      const admin = requireRole(ctx, 'ADMIN');
+      if (admin.id === userId) throw badInput("You can't delete yourself");
+      if (!deleteUserById(userId)) throw badInput('User not found');
+      return true;
     },
   },
 };

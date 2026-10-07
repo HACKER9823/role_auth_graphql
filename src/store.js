@@ -29,3 +29,10 @@ export async function seedAdmin() {
     role: 'ADMIN',
   });
 }
+
+export function deleteUserById(id) {
+  const i = users.findIndex((u) => u.id === id);
+  if (i === -1) return false;
+  users.splice(i, 1);
+  return true;
+}

@@ -25,10 +25,14 @@ export const typeDefs = `#graphql
   type Query {
     me: User
     dashboard: Dashboard!
+    users: [User!]!
   }
 
   type Mutation {
     register(name: String!, email: String!, password: String!): AuthPayload!
     login(email: String!, password: String!): AuthPayload!
+    setUserRole(userId: ID!, role: Role!): User!
+    deleteUser(userId: ID!): Boolean!
   }
+    
 `;

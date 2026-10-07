@@ -25,3 +25,40 @@ Send `Authorization: Bearer <token>` header, then:
 query { me { name role } dashboard { message data } }
 ```
 Log in as a regular user (`register` first) and compare the `dashboard` output.
+
+<!-- To check on applo server Login server mutation -->
+mutation {
+  login(email: "admin@example.com", password: "Admin@123") {
+    token
+    user { role }
+  }
+}
+
+<!-- Check user role -->
+query {
+  me { name role }
+  dashboard { message data }
+}
+
+<!-- Register example -->
+mutation {
+  register(name: "Ravi", email: "ravi@test.com", password: "password1") {
+    token
+    user { id email role }
+  }
+}
+
+<!-- Admin command to list user -->
+query { users { id email role } }
+
+<!-- To delte user -->
+mutation { deleteUser(userId: "2") }
+
+<!-- Set user role -->
+mutation {
+  setUserRole(userId: "2", role: ADMIN) {
+    id
+    email
+    role
+  }
+}
