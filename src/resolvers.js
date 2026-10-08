@@ -1,12 +1,28 @@
 import bcrypt from 'bcryptjs';
 import { GraphQLError } from 'graphql';
-import { createUser, findByEmail, findById, deleteUserById, users } from './store.js';
+import {
+  createUser,
+  findByEmail,
+  findById,
+  getAllUsers,
+  updateRole,
+  deleteUserById,
+  createRefreshToken,
+  consumeRefreshToken,
+  revokeRefreshToken,
+} from './store.js';
 import { signToken, requireAuth, requireRole } from './auth.js';
 
 const publicUser = ({ passwordHash, ...rest }) => rest;
 
 const badInput = (msg) =>
   new GraphQLError(msg, { extensions: { code: 'BAD_USER_INPUT' } });
+
+const authPayload = (user) => ({
+  token: signToken(user),
+  refreshToken: createRefreshToken(user.id),
+  user: publicUser(user),
+});
 
 export const resolvers = {
   Query: {
@@ -16,24 +32,23 @@ export const resolvers = {
     dashboard: (_, __, ctx) => {
       const user = requireAuth(ctx);
       if (user.role === 'ADMIN') {
+        const all = getAllUsers();
         return {
           role: user.role,
           message: `Welcome back, admin ${user.name}`,
-          data: [`Total users: ${users.length}`, ...users.map((u) => `${u.email} (${u.role})`)],
+          data: [`Total users: ${all.length}`, ...all.map((u) => `${u.email} (${u.role})`)],
         };
-        
       }
-      
       return {
         role: user.role,
         message: `Hello ${user.name}`,
         data: ['Your profile', 'Your activity'],
       };
-      
     },
-        users: (_, __, ctx) => {
+
+    users: (_, __, ctx) => {
       requireRole(ctx, 'ADMIN');
-      return users.map(publicUser);
+      return getAllUsers().map(publicUser);
     },
   },
 
@@ -48,7 +63,7 @@ export const resolvers = {
         passwordHash: await bcrypt.hash(password, 10),
         role: 'USER',
       });
-      return { token: signToken(user), user: publicUser(user) };
+      return authPayload(user);
     },
 
     login: async (_, { email, password }) => {
@@ -59,15 +74,29 @@ export const resolvers = {
           extensions: { code: 'UNAUTHENTICATED' },
         });
       }
-      return { token: signToken(user), user: publicUser(user) };
+      return authPayload(user);
     },
-        setUserRole: (_, { userId, role }, ctx) => {
+
+    refreshToken: (_, { refreshToken }) => {
+      const user = consumeRefreshToken(refreshToken);
+      if (!user) {
+        throw new GraphQLError('Invalid or expired refresh token', {
+          extensions: { code: 'UNAUTHENTICATED' },
+        });
+      }
+      return authPayload(user);
+    },
+
+    logout: (_, { refreshToken }) => {
+      revokeRefreshToken(refreshToken);
+      return true;
+    },
+
+    setUserRole: (_, { userId, role }, ctx) => {
       const admin = requireRole(ctx, 'ADMIN');
       if (admin.id === userId) throw badInput("You can't change your own role");
-      const target = findById(userId);
-      if (!target) throw badInput('User not found');
-      target.role = role;
-      return publicUser(target);
+      if (!findById(userId)) throw badInput('User not found');
+      return publicUser(updateRole(userId, role));
     },
 
     deleteUser: (_, { userId }, ctx) => {

@@ -13,6 +13,7 @@ export const typeDefs = `#graphql
 
   type AuthPayload {
     token: String!
+    refreshToken: String!
     user: User!
   }
 
@@ -33,6 +34,8 @@ export const typeDefs = `#graphql
     login(email: String!, password: String!): AuthPayload!
     setUserRole(userId: ID!, role: Role!): User!
     deleteUser(userId: ID!): Boolean!
+    refreshToken(refreshToken: String!): AuthPayload!
+    logout(refreshToken: String!): Boolean!
   }
     
 `;
