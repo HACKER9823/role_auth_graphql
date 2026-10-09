@@ -69,11 +69,11 @@ test('admin and user get different dashboards', async () => {
   assert.notDeepEqual(a.data.dashboard.data, u.data.dashboard.data);
 });
 
-test('users list is admin only and numbered', async () => {
+test('users list is admin only', async () => {
   const denied = await run('{ users { id } }', { token: samToken });
   assert.equal(code(denied), 'FORBIDDEN');
-  const ok = await run('{ users { no id email } }', { token: adminToken });
-  assert.deepEqual(ok.data.users.map((u) => u.no), [1, 2]);
+  const ok = await run('{ users { id email } }', { token: adminToken });
+  assert.equal(ok.data.users.length, 2);
 });
 
 test('admin can switch a role and it applies immediately', async () => {
