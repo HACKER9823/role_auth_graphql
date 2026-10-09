@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { GraphQLError } from 'graphql';
+import { assertNotLimited, recordFailure, clearFailures } from './rateLimit.js';
 import {
   createUser,
   findByEmail,
@@ -66,14 +67,18 @@ export const resolvers = {
       return authPayload(user);
     },
 
-    login: async (_, { email, password }) => {
+    login: async (_, { email, password }, ctx) => {
+      const key = `login:${ctx.ip}:${email.toLowerCase()}`;
+      assertNotLimited(key);
       const user = findByEmail(email);
       const ok = user && (await bcrypt.compare(password, user.passwordHash));
       if (!ok) {
+        recordFailure(key);
         throw new GraphQLError('Invalid email or password', {
           extensions: { code: 'UNAUTHENTICATED' },
         });
       }
+      clearFailures(key);
       return authPayload(user);
     },
 

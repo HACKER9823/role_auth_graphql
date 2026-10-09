@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 
-const FILE = 'data.json';
+const FILE = process.env.DATA_FILE || 'data.json';
 
 function load() {
   try {
