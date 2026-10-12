@@ -1,4 +1,4 @@
-import bcrypt from 'bcryptjs';
+import { hashPassword, verifyPassword } from './password.js';
 import { GraphQLError } from 'graphql';
 import { assertNotLimited, recordFailure, clearFailures } from './rateLimit.js';
 import {
@@ -61,7 +61,7 @@ export const resolvers = {
       const user = createUser({
         name,
         email,
-        passwordHash: await bcrypt.hash(password, 10),
+        passwordHash: await hashPassword(password),
         role: 'USER',
       });
       return authPayload(user);
@@ -71,7 +71,7 @@ export const resolvers = {
       const key = `login:${ctx.ip}:${email.toLowerCase()}`;
       assertNotLimited(key);
       const user = findByEmail(email);
-      const ok = user && (await bcrypt.compare(password, user.passwordHash));
+      const ok = user && (await verifyPassword(password, user.passwordHash));
       if (!ok) {
         recordFailure(key);
         throw new GraphQLError('Invalid email or password', {

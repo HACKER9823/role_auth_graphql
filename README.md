@@ -110,3 +110,6 @@ mutation {
 - On hosts with a temporary filesystem (like Render's free tier), `data.json` resets on every redeploy.
 
 It can still be devloped more like adding some UI's but currently its just for api call testing i have not built any frontend yet .
+
+JWT added
+Crypto with salth done

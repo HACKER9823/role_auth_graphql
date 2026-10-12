@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import crypto from 'node:crypto';
-import bcrypt from 'bcryptjs';
+import { hashPassword } from './password.js';
 
 const FILE = process.env.DATA_FILE || 'data.json';
 
@@ -105,7 +105,7 @@ export async function seedAdmin() {
   createUser({
     name: 'Admin',
     email,
-    passwordHash: await bcrypt.hash(password, 10),
+    passwordHash: await hashPassword(password),
     role: 'ADMIN',
   });
 }
