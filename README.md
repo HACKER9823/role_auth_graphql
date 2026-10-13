@@ -113,3 +113,6 @@ It can still be devloped more like adding some UI's but currently its just for a
 
 JWT added
 Crypto with salth done
+
+Added React Ui and now instead of passing query and mutaion every time admin can do it on thier own
+Although backed is taken care by Node and graphql is used for route calls 
