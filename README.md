@@ -116,3 +116,4 @@ Crypto with salth done
 
 Added React Ui and now instead of passing query and mutaion every time admin can do it on thier own
 Although backed is taken care by Node and graphql is used for route calls 
+Final Ui part done
