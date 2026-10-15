@@ -11,14 +11,15 @@ export function signToken(user) {
 }
 
 // Reads "Authorization: Bearer <token>" and returns the user, or null.
-export function getUserFromHeader(header) {
+export async function getUserFromHeader(header) {
   if (!header?.startsWith('Bearer ')) return null;
+  let payload;
   try {
-    const payload = jwt.verify(header.slice(7), secret());
-    return findById(payload.sub) || null;
+    payload = jwt.verify(header.slice(7), secret());
   } catch {
-    return null;
+    return null; // bad or expired token
   }
+  return (await findById(payload.sub)) || null;
 }
 
 export function requireAuth(ctx) {

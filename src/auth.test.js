@@ -1,11 +1,9 @@
+import 'dotenv/config';
 import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
-import os from 'node:os';
-import path from 'node:path';
-import fs from 'node:fs';
 
-// Use a throwaway data file and test secrets (must be set before importing the app).
-process.env.DATA_FILE = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'auth-test-')), 'data.json');
+// Tests always use their own database, never your real one.
+process.env.DB_NAME = 'role_auth_test';
 process.env.JWT_SECRET = 'test-secret';
 process.env.SEED_ADMIN_EMAIL = 'admin@test.com';
 process.env.SEED_ADMIN_PASSWORD = 'Admin@12345';
@@ -15,17 +13,26 @@ const { typeDefs } = await import('../src/schema.js');
 const { resolvers } = await import('../src/resolvers.js');
 const { getUserFromHeader } = await import('../src/auth.js');
 const { seedAdmin } = await import('../src/store.js');
+const { pool, initDb } = await import('../src/db.js');
 
+// Start every run from an empty test database.
+await initDb();
+await pool.query('DELETE FROM refresh_tokens');
+await pool.query('DELETE FROM users');
 await seedAdmin();
+
 const server = new ApolloServer({ typeDefs, resolvers });
-after(() => server.stop());
+after(async () => {
+  await server.stop();
+  await pool.end();
+});
 
 async function run(query, { variables, token } = {}) {
   const res = await server.executeOperation(
     { query, variables },
     {
       contextValue: {
-        user: getUserFromHeader(token ? `Bearer ${token}` : undefined),
+        user: await getUserFromHeader(token ? `Bearer ${token}` : undefined),
         ip: 'test',
       },
     }

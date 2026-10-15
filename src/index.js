@@ -17,7 +17,7 @@ const server = new ApolloServer({
 const { url } = await startStandaloneServer(server, {
   listen: { port: Number(process.env.PORT) || 4000 },
   context: async ({ req }) => ({
-    user: getUserFromHeader(req.headers.authorization),
+        user: await getUserFromHeader(req.headers.authorization),
     ip: req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress,
   }),
 });
