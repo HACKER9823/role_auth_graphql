@@ -97,6 +97,66 @@ test('admin cannot change own role', async () => {
   assert.match(r.errors[0].message, /own role/);
 });
 
+test('DEV can read but not change', async () => {
+  const set = await run(`mutation{setUserRole(userId:"${samId}",role:DEV){role}}`, { token: adminToken });
+  assert.equal(set.data.setUserRole.role, 'DEV');
+  const list = await run('{ users { id } }', { token: samToken });
+  assert.ok(list.data.users);
+  const info = await run('{ systemInfo { nodeVersion totalUsers } }', { token: samToken });
+  assert.ok(info.data.systemInfo.nodeVersion);
+  const del = await run(`mutation{deleteUser(userId:"${samId}")}`, { token: samToken });
+  assert.equal(code(del), 'FORBIDDEN');
+  const promote = await run(`mutation{setUserRole(userId:"${samId}",role:ADMIN){role}}`, { token: samToken });
+  assert.equal(code(promote), 'FORBIDDEN');
+  await run(`mutation{setUserRole(userId:"${samId}",role:USER){role}}`, { token: adminToken });
+});
+
+test('plain USER cannot read system info', async () => {
+  const r = await run('{ systemInfo { nodeVersion } }', { token: samToken });
+  assert.equal(code(r), 'FORBIDDEN');
+});
+
+let kimId, kimToken;
+
+test('MANAGER can change roles but cannot grant ADMIN, touch admins, or delete', async () => {
+  const kim = await run(
+    `mutation{register(name:"Kim",email:"kim@test.com",password:"password1"){token user{id}}}`
+  );
+  kimId = kim.data.register.user.id;
+  kimToken = kim.data.register.token;
+  await run(`mutation{setUserRole(userId:"${samId}",role:MANAGER){role}}`, { token: adminToken });
+
+  const ok = await run(`mutation{setUserRole(userId:"${kimId}",role:DEV){role}}`, { token: samToken });
+  assert.equal(ok.data.setUserRole.role, 'DEV');
+  const grant = await run(`mutation{setUserRole(userId:"${kimId}",role:ADMIN){role}}`, { token: samToken });
+  assert.equal(code(grant), 'FORBIDDEN');
+  const me = await run('{ me { id } }', { token: adminToken });
+  const demote = await run(`mutation{setUserRole(userId:"${me.data.me.id}",role:USER){role}}`, { token: samToken });
+  assert.equal(code(demote), 'FORBIDDEN');
+  const del = await run(`mutation{deleteUser(userId:"${kimId}")}`, { token: samToken });
+  assert.equal(code(del), 'FORBIDDEN');
+});
+
+test('SUPPORT can unlock users but not change roles; USER cannot unlock', async () => {
+  await run(`mutation{setUserRole(userId:"${kimId}",role:SUPPORT){role}}`, { token: adminToken });
+
+  const bad = `mutation{login(email:"locked@test.com",password:"wrongpass"){token}}`;
+  for (let i = 0; i < 5; i++) await run(bad);
+  assert.equal(code(await run(bad)), 'RATE_LIMITED');
+  const unlock = await run(`mutation{unlockUser(email:"locked@test.com")}`, { token: kimToken });
+  assert.equal(unlock.data.unlockUser, true);
+  assert.equal(code(await run(bad)), 'UNAUTHENTICATED');
+
+  const role = await run(`mutation{setUserRole(userId:"${samId}",role:USER){role}}`, { token: kimToken });
+  assert.equal(code(role), 'FORBIDDEN');
+
+  await run(`mutation{setUserRole(userId:"${samId}",role:USER){role}}`, { token: adminToken });
+  const denied = await run(`mutation{unlockUser(email:"locked@test.com")}`, { token: samToken });
+  assert.equal(code(denied), 'FORBIDDEN');
+
+  await run(`mutation{deleteUser(userId:"${kimId}")}`, { token: adminToken });
+});
+
 test('refresh token works once only', async () => {
   const q = `mutation($t:String!){refreshToken(refreshToken:$t){token refreshToken}}`;
   const first = await run(q, { variables: { t: adminRefresh } });

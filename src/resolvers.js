@@ -10,9 +10,15 @@ import {
   consumeRefreshToken,
   revokeRefreshToken,
 } from './store.js';
-import { signToken, requireAuth, requireRole } from './auth.js';
+import { signToken, requireAuth, requirePermission } from './auth.js';
 import { hashPassword, verifyPassword } from './password.js';
-import { assertNotLimited, recordFailure, clearFailures } from './rateLimit.js';
+import { can, PERMISSIONS } from './permissions.js';
+import {
+  assertNotLimited,
+  recordFailure,
+  clearFailures,
+  clearFailuresForEmail,
+} from './rateLimit.js';
 
 const publicUser = ({ passwordHash, ...rest }) => rest;
 
@@ -40,6 +46,13 @@ export const resolvers = {
           data: [`Total users: ${all.length}`, ...all.map((u) => `${u.email} (${u.role})`)],
         };
       }
+      if (user.role !== 'USER') {
+        return {
+          role: user.role,
+          message: `Hello ${user.role.toLowerCase()} ${user.name}`,
+          data: ['Your permissions:', ...PERMISSIONS[user.role]],
+        };
+      }
       return {
         role: user.role,
         message: `Hello ${user.name}`,
@@ -48,8 +61,16 @@ export const resolvers = {
     },
 
     users: async (_, __, ctx) => {
-      requireRole(ctx, 'ADMIN');
+      requirePermission(ctx, 'users:read');;
       return (await getAllUsers()).map(publicUser);
+    },
+    systemInfo: async (_, __, ctx) => {
+      requirePermission(ctx, 'system:read');
+      return {
+        nodeVersion: process.version,
+        uptimeSeconds: Math.floor(process.uptime()),
+        totalUsers: (await getAllUsers()).length,
+      };
     },
   },
 
@@ -104,16 +125,28 @@ export const resolvers = {
     },
 
     setUserRole: async (_, { userId, role }, ctx) => {
-      const admin = requireRole(ctx, 'ADMIN');
-      if (admin.id === userId) throw badInput("You can't change your own role");
-      if (!(await findById(userId))) throw badInput('User not found');
+      const actor = requirePermission(ctx, 'users:setRole');
+      if (actor.id === userId) throw badInput("You can't change your own role");
+      const target = await findById(userId);
+      if (!target) throw badInput('User not found');
+      // Only roles with admin:assign may grant or remove ADMIN.
+      if ((role === 'ADMIN' || target.role === 'ADMIN') && !can(actor, 'admin:assign')) {
+        throw new GraphQLError('Only an admin can grant or remove the ADMIN role', {
+          extensions: { code: 'FORBIDDEN', http: { status: 403 } },
+        });
+      }
       return publicUser(await updateRole(userId, role));
     },
 
     deleteUser: async (_, { userId }, ctx) => {
-      const admin = requireRole(ctx, 'ADMIN');
+      const admin = requirePermission(ctx, 'users:delete');
       if (admin.id === userId) throw badInput("You can't delete yourself");
       if (!(await deleteUserById(userId))) throw badInput('User not found');
+      return true;
+    },
+    unlockUser: async (_, { email }, ctx) => {
+      requirePermission(ctx, 'users:unlock');
+      clearFailuresForEmail(email);
       return true;
     },
   },

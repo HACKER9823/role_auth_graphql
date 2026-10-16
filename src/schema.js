@@ -1,6 +1,9 @@
 export const typeDefs = `#graphql
   enum Role {
     ADMIN
+    MANAGER
+    DEV
+    SUPPORT
     USER
   }
 
@@ -27,6 +30,7 @@ export const typeDefs = `#graphql
     me: User
     dashboard: Dashboard!
     users: [User!]!
+    systemInfo: SystemInfo!
   }
 
   type Mutation {
@@ -36,6 +40,13 @@ export const typeDefs = `#graphql
     deleteUser(userId: ID!): Boolean!
     refreshToken(refreshToken: String!): AuthPayload!
     logout(refreshToken: String!): Boolean!
+    unlockUser(email: String!): Boolean!
   }
     
-`;
+  type SystemInfo {
+    nodeVersion: String!
+    uptimeSeconds: Int!
+    totalUsers: Int!
+  }
+
+  `;

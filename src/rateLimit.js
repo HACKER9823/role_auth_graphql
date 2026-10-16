@@ -29,3 +29,11 @@ setInterval(() => {
   const now = Date.now();
   for (const [k, v] of failures) if (v.reset < now) failures.delete(k);
 }, 60_000).unref();
+
+// Lets support staff clear a lockout for an email, whatever IP it came from.
+export function clearFailuresForEmail(email) {
+  const suffix = `:${email.toLowerCase()}`;
+  for (const key of failures.keys()) {
+    if (key.startsWith('login:') && key.endsWith(suffix)) failures.delete(key);
+  }
+}

@@ -17,7 +17,7 @@ export async function initDb() {
       name VARCHAR(100) NOT NULL,
       email VARCHAR(255) NOT NULL UNIQUE,
       passwordHash VARCHAR(255) NOT NULL,
-      role ENUM('ADMIN','USER') NOT NULL DEFAULT 'USER'
+      role ENUM('ADMIN','MANAGER','DEV','SUPPORT','USER') NOT NULL DEFAULT 'USER'
     )`);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS refresh_tokens (
@@ -27,3 +27,8 @@ export async function initDb() {
       FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
     )`);
 }
+
+  // Keeps the role list up to date on existing databases (safe to run every start).
+  await pool.query(
+    "ALTER TABLE users MODIFY role ENUM('ADMIN','DEV','USER') NOT NULL DEFAULT 'USER'"
+  );

@@ -8,6 +8,8 @@ const HOME = `{ me { id name email role } dashboard { message data } }`;
 const USERS = `{ users { id name email role } }`;
 const SET_ROLE = `mutation($id:ID!,$r:Role!){setUserRole(userId:$id,role:$r){id}}`;
 const DELETE = `mutation($id:ID!){deleteUser(userId:$id)}`;
+const ROLES = ['USER', 'SUPPORT', 'DEV', 'MANAGER', 'ADMIN'];
+const UNLOCK = `mutation($e:String!){unlockUser(email:$e)}`;
 
 function AuthCard({ onSubmit }) {
   const [mode, setMode] = useState('login');
@@ -54,6 +56,10 @@ export default function App() {
   const [users, setUsers] = useState([]);
   const [toast, setToast] = useState(null); // { text, ok }
   const [loading, setLoading] = useState(hasSession());
+  const role = home?.me.role;
+  const canEditRoles = ['ADMIN', 'MANAGER'].includes(role);
+  const canUnlock = ['ADMIN', 'MANAGER', 'SUPPORT'].includes(role);
+  const canDelete = role === 'ADMIN';
 
   const notify = (text, ok = false) => setToast({ text, ok });
 
@@ -72,7 +78,12 @@ export default function App() {
     try {
       const d = await gql(HOME);
       setHome(d);
-      if (d.me.role === 'ADMIN') await loadUsers();
+      if (d.me.role !== 'USER')
+        try {
+          await loadUsers();
+        } catch (e) {
+          notify(e.message);
+        }
     } catch (e) {
       clearSession();
       setHome(null);
@@ -129,6 +140,15 @@ export default function App() {
     }
   }
 
+  async function unlock(u) {
+    try {
+      await gql(UNLOCK, { e: u.email });
+      notify(`${u.email} can log in again`, true);
+    } catch (e) {
+      notify(e.message);
+    }
+  }
+
   return (
     <>
       <header>
@@ -169,9 +189,9 @@ export default function App() {
               </ul>
             </section>
 
-            {home.me.role === 'ADMIN' && (
+            {role !== 'USER' && (
               <section className="card">
-                <h2>Admin: manage users</h2>
+                <h2>{canEditRoles ? 'Manage users' : 'Users (read-only)'}</h2>
                 <table>
                   <thead>
                     <tr>
@@ -188,20 +208,33 @@ export default function App() {
                         <td>{u.id}</td>
                         <td>{u.name}</td>
                         <td>{u.email}</td>
-                        <td>
+                                                <td>
                           <select
                             value={u.role}
-                            disabled={u.id === home.me.id}
+                            disabled={!canEditRoles || u.id === home.me.id}
                             onChange={(e) => changeRole(u, e.target.value)}
                           >
-                            <option>USER</option>
-                            <option>ADMIN</option>
+                            {ROLES.map((r) => (
+                              <option key={r}>{r}</option>
+                            ))}
                           </select>
+                        </td>
+                        <td>
+                          {canUnlock && <button onClick={() => unlock(u)}>Unlock login</button>}{' '}
+                          {canDelete && (
+                            <button
+                              className="danger"
+                              disabled={u.id === home.me.id}
+                              onClick={() => removeUser(u)}
+                            >
+                              Delete
+                            </button>
+                          )}
                         </td>
                         <td>
                           <button
                             className="danger"
-                            disabled={u.id === home.me.id}
+                            disabled={home.me.role !== 'ADMIN' || u.id === home.me.id}
                             onClick={() => removeUser(u)}
                           >
                             Delete
